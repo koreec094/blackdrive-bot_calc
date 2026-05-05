@@ -57,7 +57,63 @@ MODEL_MAP = {
     "G80": "G80",
     "GV70": "GV70",
     "GV80": "GV80",
+    "G70": "G70",
+    "G90": "G90",
+    "GV60": "GV60",
 }
+
+FUEL_MAP = {
+    "가솔린": "бензин",
+    "휘발유": "бензин",
+    "디젤": "дизель",
+    "경유": "дизель",
+    "LPG": "газ",
+    "엘피지": "газ",
+    "하이브리드": "гибрид",
+    "가솔린+전기": "гибрид",
+    "디젤+전기": "дизель гибрид",
+    "전기": "электро",
+    "수소": "водород",
+}
+
+
+def parse_specs_line(specs_line: str) -> tuple[int | None, int | None, str | None]:
+    year = None
+    mileage = None
+    fuel = None
+
+    yy_mm_match = re.search(r"\b(\d{2})\s*/\s*(\d{1,2})\s*식", specs_line)
+    if yy_mm_match:
+        yy = int(yy_mm_match.group(1))
+        year = 2000 + yy if yy <= 30 else 1900 + yy
+    else:
+        for pattern in [r"\b(\d{4})\s*년식", r"\b(\d{4})\s*년\b", r"\b(\d{2})\s*년식\b"]:
+            match = re.search(pattern, specs_line)
+            if not match:
+                continue
+            value = int(match.group(1))
+            year = value if value >= 100 else (2000 + value if value <= 30 else 1900 + value)
+            break
+
+    mileage_match = re.search(r"([\d,]+)\s*km", specs_line, flags=re.IGNORECASE)
+    if mileage_match:
+        mileage = int(mileage_match.group(1).replace(",", ""))
+
+    for raw, translated in FUEL_MAP.items():
+        if raw in specs_line:
+            fuel = translated
+            break
+
+    return year, mileage, fuel
+
+
+def parse_price_krw_value(raw_value: str) -> int | None:
+    manwon_match = re.search(r"(\d[\d,\.]*)\s*만원", raw_value, flags=re.IGNORECASE)
+    if manwon_match:
+        amount = manwon_match.group(1).replace(",", "").replace(".", "")
+        return int(amount) * 10000 if amount.isdigit() else None
+    digits = re.sub(r"\D", "", raw_value)
+    return int(digits) if digits else None
 
 
 async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
@@ -108,16 +164,16 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
     def parse_price_krw() -> int | None:
         manwon_match = re.search(r'(\d[\d,\.]*)\s*만원', source, flags=re.IGNORECASE)
         if manwon_match:
-            amount = manwon_match.group(1).replace(",", "").replace(".", "")
-            if amount.isdigit():
-                return int(amount) * 10000
-
-        price = pick_int(r'"price"\s*:\s*"?([\d,]+)')
-        return price
+            return parse_price_krw_value(manwon_match.group(0))
+        return pick_int(r'"price"\s*:\s*"?([\d,]+)')
 
     brand_model_match = re.search(r'"manufacturerName"\s*:\s*"([^"]+)".*?"modelGroupName"\s*:\s*"([^"]+)"', scripts_text, re.I | re.S)
-    year = parse_year()
-    mileage = pick_int(r'"mileage"\s*:\s*"?([\d,]+)')
+    specs_line_match = re.search(r"\d{2}/\d{1,2}식[^\n]*", raw_text)
+    specs_line = specs_line_match.group(0) if specs_line_match else ""
+    spec_year, spec_mileage, spec_fuel = parse_specs_line(specs_line) if specs_line else (None, None, None)
+
+    year = spec_year or parse_year()
+    mileage = spec_mileage or pick_int(r'"mileage"\s*:\s*"?([\d,]+)')
     engine = pick_int(r'"displacement"\s*:\s*"?([\d,]+)')
 
     fuel_match = re.search(r'"fuelTypeName"\s*:\s*"([^"]+)"', scripts_text, re.I)
@@ -127,6 +183,8 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
 
     brand = translate(brand_model_match.group(1), BRAND_MAP) if brand_model_match else None
     model = translate(brand_model_match.group(2), MODEL_MAP) if brand_model_match else None
+    if model and re.search(r"[가-힣]", model):
+        model = MODEL_MAP.get(model, model)
 
     return EncarCarData(
         car_id=car_id,
@@ -136,7 +194,7 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         year=year,
         mileage_km=mileage,
         engine_volume_cc=engine,
-        fuel_type=fuel_match.group(1).lower() if fuel_match else None,
+        fuel_type=spec_fuel or (translate(fuel_match.group(1), FUEL_MAP) if fuel_match else None),
         drivetrain=drive_match.group(1) if drive_match else None,
         trim=trim_match.group(1) if trim_match else None,
         price_krw=price,
