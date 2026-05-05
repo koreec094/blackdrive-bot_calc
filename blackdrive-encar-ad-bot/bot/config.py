@@ -10,8 +10,5 @@ class Settings(BaseSettings):
     korea_expenses_krw: int = Field(default=1_640_000, alias="KOREA_EXPENSES_KRW")
     encar_request_timeout: int = Field(default=15, alias="ENCAR_REQUEST_TIMEOUT")
 
-    calculator_api_url: str | None = Field(default=None, alias="CALCULATOR_API_URL")
-    calculator_api_token: str | None = Field(default=None, alias="CALCULATOR_API_TOKEN")
-
 
 settings = Settings()
