@@ -6,9 +6,7 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.config import settings
 from bot.keyboards import result_actions_keyboard
-from bot.models import EncarCarData
 from bot.services.ad_generator import generate_ad_text
-from bot.services.calculator_client import calculate_import_cost
 from bot.services.encar_parser import fetch_encar_car_data
 from bot.states import EncarAdStates
 from bot.utils.url import extract_car_id, is_encar_url
@@ -45,24 +43,10 @@ async def handle_encar_url(message: Message, state: FSMContext) -> None:
         car = await fetch_encar_car_data(url, car_id)
     except Exception:
         logger.exception("Failed to fetch Encar data")
-        await message.answer("Не удалось получить данные с Encar. Попробуйте позже или введите данные вручную.")
+        await message.answer("Не удалось получить данные с Encar. Попробуйте позже.")
         return
 
-    missing_fields = []
-    for field_name in ("brand", "model", "year", "mileage_km", "engine_volume_cc", "fuel_type", "price_krw"):
-        if getattr(car, field_name) in (None, ""):
-            missing_fields.append(field_name)
-
-    if missing_fields:
-        lines = "\n".join(f"- {f}" for f in missing_fields)
-        await message.answer(
-            "Не удалось определить некоторые данные автомобиля:\n"
-            f"{lines}\n\nВведите недостающие данные вручную."
-        )
-        return
-
-    calc = await calculate_import_cost(car)
-    ad_text = generate_ad_text(car, calc)
+    ad_text = generate_ad_text(car, settings.korea_expenses_krw)
     await message.answer(ad_text, reply_markup=result_actions_keyboard(settings.manager_telegram_url))
 
 

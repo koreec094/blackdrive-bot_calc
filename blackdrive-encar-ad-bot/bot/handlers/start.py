@@ -9,4 +9,4 @@ router = Router()
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    await message.answer("Добро пожаловать в BlackDrive Encar Ad Bot.", reply_markup=main_menu_keyboard())
+    await message.answer("Выберите действие:", reply_markup=main_menu_keyboard())
