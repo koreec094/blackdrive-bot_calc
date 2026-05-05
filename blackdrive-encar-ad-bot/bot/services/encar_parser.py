@@ -101,8 +101,16 @@ TRIM_MAP = {
     "GT 라인": "GT Line",
     "N라인": "N Line",
     "N 라인": "N Line",
+    "베스트 셀렉션": "Best Selection",
+    "베스트셀렉션": "Best Selection",
+    "트렌디": "Trendy",
+    "스페셜": "Special",
+    "마이핏": "My Fit",
+    "초이스": "Choice",
+    "파이니스트": "Finest",
+    "로얄 스페셜": "Royal Special",
+    "로얄": "Royal",
 }
-
 
 def parse_specs_line(specs_line: str) -> tuple[int | None, int | None, str | None]:
     year = None
@@ -143,20 +151,28 @@ def parse_price_krw_value(raw_value: str) -> int | None:
     return int(digits) if digits else None
 
 
-def extract_trim(trim_raw: str | None, fallback_text: str) -> str | None:
+def extract_trim(text: str) -> str:
+    normalized = re.sub(r"\s+", " ", text or "").strip()
+    if not normalized:
+        return ""
+
+    best_match = ""
+    for candidate in TRIM_MAP:
+        if candidate in normalized and len(candidate) > len(best_match):
+            best_match = candidate
+
+    return TRIM_MAP.get(best_match, "")
+
+
+def resolve_trim(trim_raw: str | None, title_text: str, page_text: str) -> str:
     if trim_raw and trim_raw.strip():
         return trim_raw.strip()
 
-    normalized = re.sub(r"\s+", " ", fallback_text)
-    best_match = None
-    for candidate in TRIM_MAP:
-        if candidate in normalized:
-            if best_match is None or len(candidate) > len(best_match):
-                best_match = candidate
+    title_trim = extract_trim(title_text)
+    if title_trim:
+        return title_trim
 
-    if not best_match:
-        return None
-    return best_match
+    return extract_trim(page_text)
 
 
 async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
@@ -174,7 +190,7 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         meta = soup.find("meta", attrs={"property": meta_name}) or soup.find("meta", attrs={"name": meta_name})
         if meta and meta.get("content"):
             meta_chunks.append(meta.get("content"))
-    title_source_text = " ".join([page_title, *meta_chunks, raw_text])
+    title_source_text = " ".join([page_title, *meta_chunks])
 
     # MVP parser: tries to infer mandatory fields from script blocks/text.
     scripts_text = "\n".join(script.get_text(" ", strip=True) for script in soup.find_all("script"))
@@ -246,7 +262,7 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         engine_volume_cc=engine,
         fuel_type=spec_fuel or (translate(fuel_match.group(1), FUEL_MAP) if fuel_match else None),
         drivetrain=drive_match.group(1) if drive_match else None,
-        trim=extract_trim(trim_match.group(1) if trim_match else None, title_source_text),
+        trim=resolve_trim(trim_match.group(1) if trim_match else None, title_source_text, raw_text),
         price_krw=price,
         insurance_status=None,
     )
