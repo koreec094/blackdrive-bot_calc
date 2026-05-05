@@ -1,29 +1,79 @@
-def format_int_with_dots(value: int | None) -> str:
+TRIM_MAP = {
+    "프레스티지": "Prestige",
+    "노블레스": "Noblesse",
+    "시그니처": "Signature",
+    "트렌디": "Trendy",
+    "럭셔리": "Luxury",
+    "스마트": "Smart",
+    "모던": "Modern",
+    "인스퍼레이션": "Inspiration",
+    "익스클루시브": "Exclusive",
+    "캘리그래피": "Calligraphy",
+    "그래비티": "Gravity",
+}
+
+FUEL_MAP = {
+    "gasoline": "бензин",
+    "petrol": "бензин",
+    "휘발유": "бензин",
+    "diesel": "дизель",
+    "경유": "дизель",
+    "hybrid": "гибрид",
+    "hev": "гибрид",
+    "lpg": "газ",
+    "전기": "электро",
+    "electric": "электро",
+}
+
+
+def format_krw(value: int | None) -> str:
+    if value is None:
+        return "требуется проверка"
+    return f"{value:,}".replace(",", ".")
+
+
+def format_mileage(value: int | None) -> str:
     if value is None:
         return "требуется проверка"
     return f"{value:,}".replace(",", ".")
 
 
 def format_mileage_km(value: int | None) -> str:
-    if value is None:
-        return "требуется проверка"
-    return f"{format_int_with_dots(value)} km"
+    formatted = format_mileage(value)
+    if formatted == "требуется проверка":
+        return formatted
+    return f"{formatted} km"
 
 
 def format_engine(engine_volume_cc: int | None, fuel_type: str | None) -> str:
     if engine_volume_cc is None:
         return "требуется проверка"
     liters = round(engine_volume_cc / 1000, 1)
-    fuel = fuel_type or "требуется проверка"
+    fuel_key = (fuel_type or "").strip().lower()
+    fuel = FUEL_MAP.get(fuel_key, fuel_key if fuel_key else "требуется проверка")
     return f"{liters:.1f} {fuel}"
 
 
 def format_drive(drivetrain: str | None) -> str:
     if drivetrain is None:
         return "требуется проверка"
-    value = drivetrain.upper()
-    if value in {"2WD", "FWD", "RWD"}:
+    value = drivetrain.strip().upper()
+    if value in {"2WD"}:
         return "2вд"
     if value in {"4WD", "AWD"}:
         return "4вд"
-    return drivetrain
+
+    raw = drivetrain.strip()
+    if "전륜" in raw:
+        return "передний"
+    if "후륜" in raw:
+        return "задний"
+    if "4륜" in raw or "사륜" in raw:
+        return "4вд"
+    return "требуется проверка"
+
+
+def format_trim(trim: str | None) -> str:
+    if not trim:
+        return "требуется проверка"
+    return TRIM_MAP.get(trim.strip(), "требуется проверка")
