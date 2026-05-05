@@ -64,7 +64,7 @@ def format_engine(engine_volume_cc: int | None, fuel_type: str | None) -> str:
 
 def format_drive(drivetrain: str | None) -> str:
     if drivetrain is None:
-        return "требуется проверка"
+        return ""
     value = drivetrain.strip().upper()
     if value in {"2WD"}:
         return "2вд"
@@ -73,14 +73,14 @@ def format_drive(drivetrain: str | None) -> str:
 
     raw = drivetrain.strip()
     if raw in {"오토", "자동", "수동"}:
-        return "требуется проверка"
+        return ""
     if "전륜" in raw:
         return "передний"
     if "후륜" in raw:
         return "задний"
     if "4륜" in raw or "사륜" in raw:
         return "4вд"
-    return "требуется проверка"
+    return ""
 
 
 def format_trim(trim: str | None) -> str:

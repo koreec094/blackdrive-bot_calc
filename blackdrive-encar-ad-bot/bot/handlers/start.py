@@ -2,11 +2,9 @@ from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from bot.keyboards import main_menu_keyboard
-
 router = Router()
 
 
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
-    await message.answer("Выберите действие:", reply_markup=main_menu_keyboard())
+    await message.answer("Отправьте ссылку на автомобиль Encar, и я сформирую объявление.")
