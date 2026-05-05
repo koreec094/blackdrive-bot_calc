@@ -10,13 +10,21 @@ TRIM_MAP = {
     "익스클루시브": "Exclusive",
     "캘리그래피": "Calligraphy",
     "그래비티": "Gravity",
+    "플래티넘": "Platinum",
+    "마스터즈": "Masters",
+    "에어": "Air",
+    "어스": "Earth",
+    "GT라인": "GT Line",
+    "GT 라인": "GT Line",
 }
 
 FUEL_MAP = {
     "gasoline": "бензин",
     "petrol": "бензин",
     "휘발유": "бензин",
+    "가솔린": "бензин",
     "diesel": "дизель",
+    "디젤": "дизель",
     "경유": "дизель",
     "hybrid": "гибрид",
     "hev": "гибрид",
@@ -46,11 +54,11 @@ def format_mileage_km(value: int | None) -> str:
 
 
 def format_engine(engine_volume_cc: int | None, fuel_type: str | None) -> str:
-    if engine_volume_cc is None:
-        return "требуется проверка"
-    liters = round(engine_volume_cc / 1000, 1)
     fuel_key = (fuel_type or "").strip().lower()
     fuel = FUEL_MAP.get(fuel_key, fuel_key if fuel_key else "требуется проверка")
+    if engine_volume_cc is None:
+        return f"требуется проверка {fuel}"
+    liters = round(engine_volume_cc / 1000, 1)
     return f"{liters:.1f} {fuel}"
 
 
@@ -64,6 +72,8 @@ def format_drive(drivetrain: str | None) -> str:
         return "4вд"
 
     raw = drivetrain.strip()
+    if raw in {"오토", "자동", "수동"}:
+        return "требуется проверка"
     if "전륜" in raw:
         return "передний"
     if "후륜" in raw:
