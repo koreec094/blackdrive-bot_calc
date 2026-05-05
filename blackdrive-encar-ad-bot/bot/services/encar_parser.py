@@ -11,6 +11,55 @@ from bot.models import EncarCarData
 logger = logging.getLogger(__name__)
 
 
+BRAND_MAP = {
+    "기아": "Kia",
+    "현대": "Hyundai",
+    "제네시스": "Genesis",
+    "쉐보레": "Chevrolet",
+    "르노코리아": "Renault Korea",
+    "쌍용": "SsangYong",
+    "KG모빌리티": "KG Mobility",
+    "BMW": "BMW",
+    "벤츠": "Mercedes-Benz",
+    "메르세데스-벤츠": "Mercedes-Benz",
+    "아우디": "Audi",
+    "폭스바겐": "Volkswagen",
+    "렉서스": "Lexus",
+    "토요타": "Toyota",
+    "혼다": "Honda",
+    "닛산": "Nissan",
+    "포드": "Ford",
+    "링컨": "Lincoln",
+    "지프": "Jeep",
+    "볼보": "Volvo",
+    "미니": "MINI",
+}
+
+MODEL_MAP = {
+    "모닝": "Morning",
+    "레이": "Ray",
+    "K3": "K3",
+    "K5": "K5",
+    "K7": "K7",
+    "K8": "K8",
+    "K9": "K9",
+    "쏘렌토": "Sorento",
+    "스포티지": "Sportage",
+    "카니발": "Carnival",
+    "셀토스": "Seltos",
+    "아반떼": "Avante",
+    "쏘나타": "Sonata",
+    "그랜저": "Grandeur",
+    "투싼": "Tucson",
+    "싼타페": "Santa Fe",
+    "팰리세이드": "Palisade",
+    "제네시스 G80": "Genesis G80",
+    "G80": "G80",
+    "GV70": "GV70",
+    "GV80": "GV80",
+}
+
+
 async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
     logger.info("Fetching Encar page for car_id=%s", car_id)
     async with httpx.AsyncClient(timeout=settings.encar_request_timeout) as client:
@@ -32,21 +81,58 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         digits = re.sub(r"\D", "", match.group(1))
         return int(digits) if digits else None
 
+    def translate(value: str | None, mapping: dict[str, str]) -> str | None:
+        if not value:
+            return None
+        return mapping.get(value.strip(), value.strip())
+
+    def parse_year() -> int | None:
+        candidates = [
+            r'"year"\s*:\s*"?(\d{4})',
+            r'(\d{4})\s*년식',
+            r'\b(\d{2})\s*년\b',
+            r'\b(\d{4})\s*/\s*\d{1,2}\b',
+            r'최초등록[^\d]{0,12}(\d{4})',
+        ]
+        for pattern in candidates:
+            match = re.search(pattern, source, flags=re.IGNORECASE)
+            if not match:
+                continue
+            value = int(match.group(1))
+            if value < 100:
+                value = 2000 + value if value <= 30 else 1900 + value
+            if 1900 <= value <= 2100:
+                return value
+        return None
+
+    def parse_price_krw() -> int | None:
+        manwon_match = re.search(r'(\d[\d,\.]*)\s*만원', source, flags=re.IGNORECASE)
+        if manwon_match:
+            amount = manwon_match.group(1).replace(",", "").replace(".", "")
+            if amount.isdigit():
+                return int(amount) * 10000
+
+        price = pick_int(r'"price"\s*:\s*"?([\d,]+)')
+        return price
+
     brand_model_match = re.search(r'"manufacturerName"\s*:\s*"([^"]+)".*?"modelGroupName"\s*:\s*"([^"]+)"', scripts_text, re.I | re.S)
-    year = pick_int(r'"year"\s*:\s*"?(\d{4})')
+    year = parse_year()
     mileage = pick_int(r'"mileage"\s*:\s*"?([\d,]+)')
     engine = pick_int(r'"displacement"\s*:\s*"?([\d,]+)')
 
     fuel_match = re.search(r'"fuelTypeName"\s*:\s*"([^"]+)"', scripts_text, re.I)
-    drive_match = re.search(r'"transmissionName"\s*:\s*"([^"]+)"', scripts_text, re.I)
+    drive_match = re.search(r'"drivetrainName"\s*:\s*"([^"]+)"', scripts_text, re.I)
     trim_match = re.search(r'"gradeName"\s*:\s*"([^"]+)"', scripts_text, re.I)
-    price = pick_int(r'"price"\s*:\s*"?([\d,]+)')
+    price = parse_price_krw()
+
+    brand = translate(brand_model_match.group(1), BRAND_MAP) if brand_model_match else None
+    model = translate(brand_model_match.group(2), MODEL_MAP) if brand_model_match else None
 
     return EncarCarData(
         car_id=car_id,
         url=url,
-        brand=brand_model_match.group(1) if brand_model_match else None,
-        model=brand_model_match.group(2) if brand_model_match else None,
+        brand=brand,
+        model=model,
         year=year,
         mileage_km=mileage,
         engine_volume_cc=engine,
