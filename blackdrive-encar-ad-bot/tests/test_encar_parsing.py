@@ -24,4 +24,10 @@ def test_extract_trim_prefers_longest_match():
 
 def test_resolve_trim_prefers_grade_name_when_present():
     title = "아반떼 CN7 1.6 인스퍼레이션"
-    assert resolve_trim("스마트", title, "") == "스마트"
+    assert resolve_trim("스마트", title, "", "") == "스마트"
+
+
+def test_extract_trim_self_checks():
+    assert extract_trim("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지") == "Prestige"
+    assert extract_trim("모닝 어반 (JA) 프레스티지") == "Prestige"
+    assert extract_trim("아반떼 CN7 1.6 인스퍼레이션") == "Inspiration"

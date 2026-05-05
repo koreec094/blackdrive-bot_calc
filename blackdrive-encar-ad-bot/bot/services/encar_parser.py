@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 
@@ -112,6 +111,13 @@ TRIM_MAP = {
     "로얄": "Royal",
 }
 
+
+def _first_non_empty(*values: str | None) -> str:
+    for value in values:
+        if value and value.strip():
+            return value.strip()
+    return ""
+
 def parse_specs_line(specs_line: str) -> tuple[int | None, int | None, str | None]:
     year = None
     mileage = None
@@ -151,8 +157,10 @@ def parse_price_krw_value(raw_value: str) -> int | None:
     return int(digits) if digits else None
 
 
-def extract_trim(text: str) -> str:
-    normalized = re.sub(r"\s+", " ", text or "").strip()
+def extract_trim(text: str | None) -> str:
+    if not text:
+        return ""
+    normalized = " ".join(str(text).split())
     if not normalized:
         return ""
 
@@ -164,7 +172,7 @@ def extract_trim(text: str) -> str:
     return TRIM_MAP.get(best_match, "")
 
 
-def resolve_trim(trim_raw: str | None, title_text: str, page_text: str) -> str:
+def resolve_trim(trim_raw: str | None, title_text: str, subtitle_text: str, page_text: str) -> str:
     if trim_raw and trim_raw.strip():
         return trim_raw.strip()
 
@@ -172,7 +180,8 @@ def resolve_trim(trim_raw: str | None, title_text: str, page_text: str) -> str:
     if title_trim:
         return title_trim
 
-    return extract_trim(page_text)
+    combined_text = " ".join(filter(None, [title_text, subtitle_text, page_text]))
+    return extract_trim(combined_text)
 
 
 async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
@@ -185,16 +194,43 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
     soup = BeautifulSoup(html, "lxml")
     raw_text = soup.get_text(" ", strip=True)
     page_title = soup.title.get_text(" ", strip=True) if soup.title else ""
+    og_title_meta = soup.find("meta", attrs={"property": "og:title"})
+    og_title = og_title_meta.get("content", "").strip() if og_title_meta else ""
+    h1_title = ""
+    h1_tag = soup.find("h1")
+    if h1_tag:
+        h1_title = h1_tag.get_text(" ", strip=True)
+
+    biggest_heading = ""
+    for tag_name in ("h1", "h2", "strong"):
+        candidate = soup.find(tag_name)
+        if candidate:
+            biggest_heading = candidate.get_text(" ", strip=True)
+            if biggest_heading:
+                break
     meta_chunks = []
     for meta_name in ["og:title", "twitter:title", "description"]:
         meta = soup.find("meta", attrs={"property": meta_name}) or soup.find("meta", attrs={"name": meta_name})
         if meta and meta.get("content"):
             meta_chunks.append(meta.get("content"))
-    title_source_text = " ".join([page_title, *meta_chunks])
 
     # MVP parser: tries to infer mandatory fields from script blocks/text.
     scripts_text = "\n".join(script.get_text(" ", strip=True) for script in soup.find_all("script"))
     source = f"{scripts_text}\n{raw_text}"
+    subtitle_text = ""
+    subtitle_match = re.search(r'"subTitle"\s*:\s*"([^"]+)"', scripts_text, re.I)
+    if subtitle_match:
+        subtitle_text = subtitle_match.group(1).strip()
+
+    script_title = ""
+    for pattern in [r'"displayName"\s*:\s*"([^"]+)"', r'"carNm"\s*:\s*"([^"]+)"', r'"title"\s*:\s*"([^"]+)"']:
+        match = re.search(pattern, scripts_text, re.I)
+        if match:
+            script_title = match.group(1).strip()
+            if script_title:
+                break
+
+    full_title = _first_non_empty(og_title, script_title, page_title, h1_title, biggest_heading)
 
     def pick_int(pattern: str) -> int | None:
         match = re.search(pattern, source, flags=re.IGNORECASE)
@@ -252,6 +288,9 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
     if model and re.search(r"[가-힣]", model):
         model = MODEL_MAP.get(model, model)
 
+    extracted_trim = resolve_trim(trim_match.group(1) if trim_match else None, full_title, subtitle_text, raw_text)
+    logger.info("Encar title=%r trim=%r extracted_trim=%r", full_title, trim_match.group(1) if trim_match else None, extracted_trim)
+
     return EncarCarData(
         car_id=car_id,
         url=url,
@@ -262,7 +301,8 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         engine_volume_cc=engine,
         fuel_type=spec_fuel or (translate(fuel_match.group(1), FUEL_MAP) if fuel_match else None),
         drivetrain=drive_match.group(1) if drive_match else None,
-        trim=resolve_trim(trim_match.group(1) if trim_match else None, title_source_text, raw_text),
+        trim=extracted_trim,
         price_krw=price,
         insurance_status=None,
+        title=full_title,
     )
