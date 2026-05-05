@@ -1,11 +1,16 @@
 TRIM_MAP = {
+    "스타일": "Style",
+    "스마트": "Smart",
+    "모던": "Modern",
+    "프리미엄": "Premium",
+    "프리미어": "Premier",
+    "밸류 플러스": "Value Plus",
+    "밸류플러스": "Value Plus",
+    "럭셔리": "Luxury",
     "프레스티지": "Prestige",
     "노블레스": "Noblesse",
     "시그니처": "Signature",
     "트렌디": "Trendy",
-    "럭셔리": "Luxury",
-    "스마트": "Smart",
-    "모던": "Modern",
     "인스퍼레이션": "Inspiration",
     "익스클루시브": "Exclusive",
     "캘리그래피": "Calligraphy",
@@ -16,6 +21,8 @@ TRIM_MAP = {
     "어스": "Earth",
     "GT라인": "GT Line",
     "GT 라인": "GT Line",
+    "N라인": "N Line",
+    "N 라인": "N Line",
 }
 
 FUEL_MAP = {
@@ -85,5 +92,5 @@ def format_drive(drivetrain: str | None) -> str:
 
 def format_trim(trim: str | None) -> str:
     if not trim:
-        return "требуется проверка"
-    return TRIM_MAP.get(trim.strip(), "требуется проверка")
+        return ""
+    return TRIM_MAP.get(trim.strip(), "")
