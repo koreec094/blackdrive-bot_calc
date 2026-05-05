@@ -15,3 +15,4 @@ class EncarCarData:
     trim: str | None = None
     price_krw: int | None = None
     insurance_status: str | None = None
+    title: str | None = None
