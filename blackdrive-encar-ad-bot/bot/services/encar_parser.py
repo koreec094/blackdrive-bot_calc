@@ -201,6 +201,34 @@ def _normalize_title_spacing(raw_title: str) -> str:
     return normalized
 
 
+def clean_raw_title(title: str) -> str:
+    cleaned = _normalize_title_spacing(title)
+    if not cleaned:
+        return ""
+
+    for marker in [
+        " 중고차",
+        ": 내차팔기",
+        "내차팔기",
+        "내차사기",
+        "| 엔카",
+        "- 엔카",
+        "엔카",
+        "Encar",
+    ]:
+        idx = cleaned.find(marker)
+        if idx >= 0:
+            cleaned = cleaned[:idx]
+
+    cleaned = _normalize_title_spacing(cleaned)
+    trailing_regions = [
+        "서울", "경기", "인천", "부산", "대구", "대전", "광주", "울산", "세종", "제주",
+        "강원", "충북", "충남", "전북", "전남", "경북", "경남",
+    ]
+    cleaned = re.sub(rf"(?:\s+(?:{'|'.join(trailing_regions)}))+\s*$", "", cleaned).strip()
+    return _normalize_title_spacing(cleaned)
+
+
 def translate_full_title(raw_title: str) -> str:
     normalized = _normalize_title_spacing(raw_title)
     if not normalized:
@@ -213,6 +241,7 @@ def translate_full_title(raw_title: str) -> str:
 
     translated = translated.replace("(", " ").replace(")", " ")
     translated = re.sub(r"\s+", " ", translated).strip()
+    translated = re.sub(r"\b([A-Z]{1,5}\d{2,3}|\d{3})\s+d\b", r"\1d", translated)
     translated = re.sub(r"(Renault Samsung)(\s+\1)+", r"\1", translated)
     translated = re.sub(r"(Chevrolet)(\s+\1)+", r"\1", translated)
     if translated:
@@ -226,7 +255,7 @@ def translate_full_title(raw_title: str) -> str:
 def build_display_title(car: EncarCarData) -> str:
     raw_title = (car.title or "").strip()
     if raw_title:
-        full_title = translate_full_title(raw_title)
+        full_title = translate_full_title(clean_raw_title(raw_title))
         if full_title:
             first_token = full_title.split(" ", 1)[0]
             if first_token in BRAND_MAP.values():

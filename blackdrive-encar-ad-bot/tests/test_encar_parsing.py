@@ -1,4 +1,4 @@
-from bot.services.encar_parser import extract_trim, parse_price_krw_value, parse_specs_line, resolve_trim, translate_full_title
+from bot.services.encar_parser import clean_raw_title, extract_trim, parse_price_krw_value, parse_specs_line, resolve_trim, translate_full_title
 
 
 def test_parse_specs_line():
@@ -38,3 +38,13 @@ def test_translate_full_title_self_checks():
     assert translate_full_title("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지") == "Kia Sportage 5th Gen 1.6 Turbo 2WD Prestige"
     assert translate_full_title("쉐보레(GM대우) 트레일블레이저") == "Chevrolet Trailblazer"
     assert translate_full_title("르노코리아(삼성) QM6") == "Renault Samsung QM6"
+    assert translate_full_title("GLB-클래스 X247 GLB200 d") == "Mercedes-Benz GLB-Class X247 GLB200d"
+
+
+def test_clean_raw_title_self_checks():
+    assert clean_raw_title("GLB-클래스 X247 GLB200 d 경기 중고차 : 내차팔기·내차사기") == "GLB-클래스 X247 GLB200 d"
+    assert clean_raw_title("E-클래스 W213 E300e 4MATIC 익스클루시브 서울 중고차 : 내차팔기·내차사기") == "E-클래스 W213 E300e 4MATIC 익스클루시브"
+    assert (
+        translate_full_title(clean_raw_title("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지 경기 중고차 : 내차팔기·내차사기"))
+        == "Kia Sportage 5th Gen 1.6 Turbo 2WD Prestige"
+    )
