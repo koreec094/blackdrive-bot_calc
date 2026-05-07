@@ -6,16 +6,23 @@ from bs4 import BeautifulSoup
 
 from bot.config import settings
 from bot.models import EncarCarData
+from bot.services.formatter import format_trim
 
 logger = logging.getLogger(__name__)
 
 
 BRAND_MAP = {
+    "르노코리아(삼성)": "Renault Samsung",
+    "르노삼성": "Renault Samsung",
     "기아": "Kia",
     "현대": "Hyundai",
     "제네시스": "Genesis",
-    "쉐보레": "Chevrolet",
     "르노코리아": "Renault Korea",
+    "삼성": "Renault Samsung",
+    "쉐보레(GM대우)": "Chevrolet",
+    "GM대우": "Chevrolet",
+    "쉐보레": "Chevrolet",
+    "대우": "Daewoo",
     "쌍용": "SsangYong",
     "KG모빌리티": "KG Mobility",
     "BMW": "BMW",
@@ -35,6 +42,38 @@ BRAND_MAP = {
 }
 
 MODEL_MAP = {
+    "트레일블레이저": "Trailblazer",
+    "트랙스": "Trax",
+    "스파크": "Spark",
+    "말리부": "Malibu",
+    "임팔라": "Impala",
+    "콜로라도": "Colorado",
+    "카마로": "Camaro",
+    "QM6": "QM6",
+    "SM6": "SM6",
+    "XM3": "XM3",
+    "SM3": "SM3",
+    "SM5": "SM5",
+    "SM7": "SM7",
+    "마스터": "Master",
+    "E-클래스": "E-Class",
+    "C-클래스": "C-Class",
+    "S-클래스": "S-Class",
+    "A-클래스": "A-Class",
+    "B-클래스": "B-Class",
+    "GLA-클래스": "GLA-Class",
+    "GLB-클래스": "GLB-Class",
+    "GLC-클래스": "GLC-Class",
+    "GLE-클래스": "GLE-Class",
+    "GLS-클래스": "GLS-Class",
+    "3시리즈": "3-Series",
+    "5시리즈": "5-Series",
+    "7시리즈": "7-Series",
+    "X1": "X1",
+    "X3": "X3",
+    "X5": "X5",
+    "X6": "X6",
+    "X7": "X7",
     "모닝": "Morning",
     "레이": "Ray",
     "K3": "K3",
@@ -52,6 +91,7 @@ MODEL_MAP = {
     "투싼": "Tucson",
     "싼타페": "Santa Fe",
     "팰리세이드": "Palisade",
+    "코나": "Kona",
     "제네시스 G80": "Genesis G80",
     "G80": "G80",
     "GV70": "GV70",
@@ -59,6 +99,22 @@ MODEL_MAP = {
     "G70": "G70",
     "G90": "G90",
     "GV60": "GV60",
+}
+TITLE_TOKEN_MAP = {
+    **BRAND_MAP,
+    **MODEL_MAP,
+    "5세대": "5th Gen",
+    "M 스포츠": "M-Sport",
+    "M스포츠": "M-Sport",
+    "AMG 라인": "AMG Line",
+    "AMG라인": "AMG Line",
+    "어반": "Urban",
+    "터보": "Turbo",
+    "가솔린": "",
+    "디젤": "",
+    "하이브리드": "Hybrid",
+    "가솔린+전기": "Plug-in Hybrid",
+    "전기": "Electric",
 }
 
 FUEL_MAP = {
@@ -111,12 +167,78 @@ TRIM_MAP = {
     "로얄": "Royal",
 }
 
+TITLE_TOKEN_MAP.update({k: v for k, v in TRIM_MAP.items()})
+MODEL_BRAND_HINTS = {
+    "Sportage": "Kia",
+    "Morning": "Kia",
+    "Sorento": "Kia",
+    "Carnival": "Kia",
+    "Seltos": "Kia",
+    "Ray": "Kia",
+    "E-Class": "Mercedes-Benz",
+    "C-Class": "Mercedes-Benz",
+    "S-Class": "Mercedes-Benz",
+    "A-Class": "Mercedes-Benz",
+    "B-Class": "Mercedes-Benz",
+    "3-Series": "BMW",
+    "5-Series": "BMW",
+    "7-Series": "BMW",
+    "QM6": "Renault Samsung",
+    "Trailblazer": "Chevrolet",
+}
+
 
 def _first_non_empty(*values: str | None) -> str:
     for value in values:
         if value and value.strip():
             return value.strip()
     return ""
+
+
+def _normalize_title_spacing(raw_title: str) -> str:
+    normalized = raw_title.replace("  ", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def translate_full_title(raw_title: str) -> str:
+    normalized = _normalize_title_spacing(raw_title)
+    if not normalized:
+        return ""
+
+    translated = normalized
+    for source in sorted(TITLE_TOKEN_MAP, key=len, reverse=True):
+        replacement = TITLE_TOKEN_MAP[source]
+        translated = re.sub(rf"(?<!\w){re.escape(source)}(?!\w)", replacement, translated)
+
+    translated = translated.replace("(", " ").replace(")", " ")
+    translated = re.sub(r"\s+", " ", translated).strip()
+    translated = re.sub(r"(Renault Samsung)(\s+\1)+", r"\1", translated)
+    translated = re.sub(r"(Chevrolet)(\s+\1)+", r"\1", translated)
+    if translated:
+        if not any(translated.startswith(f"{brand} ") or translated == brand for brand in BRAND_MAP.values()):
+            for model_token, brand_name in MODEL_BRAND_HINTS.items():
+                if re.search(rf"(?<!\w){re.escape(model_token)}(?!\w)", translated):
+                    return f"{brand_name} {translated}"
+    return translated
+
+
+def build_display_title(car: EncarCarData) -> str:
+    raw_title = (car.title or "").strip()
+    if raw_title:
+        full_title = translate_full_title(raw_title)
+        if full_title:
+            first_token = full_title.split(" ", 1)[0]
+            if first_token in BRAND_MAP.values():
+                return full_title
+
+            brand = (car.brand or "").strip()
+            if brand:
+                return f"{brand} {full_title}".strip()
+            return full_title
+
+    fallback_parts = [(car.brand or "").strip(), (car.model or "").strip(), format_trim(car.trim)]
+    return " ".join(part for part in fallback_parts if part).strip()
 
 def parse_specs_line(specs_line: str) -> tuple[int | None, int | None, str | None]:
     year = None
