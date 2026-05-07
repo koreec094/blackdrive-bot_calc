@@ -1,4 +1,4 @@
-from bot.services.encar_parser import extract_trim, parse_price_krw_value, parse_specs_line, resolve_trim
+from bot.services.encar_parser import extract_trim, parse_price_krw_value, parse_specs_line, resolve_trim, translate_full_title
 
 
 def test_parse_specs_line():
@@ -31,3 +31,10 @@ def test_extract_trim_self_checks():
     assert extract_trim("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지") == "Prestige"
     assert extract_trim("모닝 어반 (JA) 프레스티지") == "Prestige"
     assert extract_trim("아반떼 CN7 1.6 인스퍼레이션") == "Inspiration"
+
+
+def test_translate_full_title_self_checks():
+    assert translate_full_title("E-클래스 W213 E300e 4MATIC 익스클루시브") == "Mercedes-Benz E-Class W213 E300e 4MATIC Exclusive"
+    assert translate_full_title("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지") == "Kia Sportage 5th Gen 1.6 Turbo 2WD Prestige"
+    assert translate_full_title("쉐보레(GM대우) 트레일블레이저") == "Chevrolet Trailblazer"
+    assert translate_full_title("르노코리아(삼성) QM6") == "Renault Samsung QM6"
