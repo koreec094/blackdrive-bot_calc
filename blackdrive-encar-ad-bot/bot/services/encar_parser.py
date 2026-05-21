@@ -249,6 +249,15 @@ def parse_specs_line(specs_line: str) -> tuple[int | None, int | None, str | Non
     return year, mileage, fuel
 
 
+def parse_plate_number(source_text: str) -> str | None:
+    if not source_text:
+        return None
+    match = re.search(r"\b(\d{2,3}[가-힣]\d{4})\b", source_text)
+    if match:
+        return match.group(1)
+    return None
+
+
 def parse_price_krw_value(raw_value: str) -> int | None:
     manwon_match = re.search(r"(\d[\d,\.]*)\s*만원", raw_value, flags=re.IGNORECASE)
     if manwon_match:
@@ -383,6 +392,7 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
     drive_match = re.search(r'"drivetrainName"\s*:\s*"([^"]+)"', scripts_text, re.I)
     trim_match = re.search(r'"gradeName"\s*:\s*"([^"]+)"', scripts_text, re.I)
     price = parse_price_krw()
+    plate_number = parse_plate_number(source)
 
     brand = translate(brand_model_match.group(1), BRAND_MAP) if brand_model_match else None
     model = translate(brand_model_match.group(2), MODEL_MAP) if brand_model_match else None
@@ -406,4 +416,5 @@ async def fetch_encar_car_data(url: str, car_id: str) -> EncarCarData:
         price_krw=price,
         insurance_status=None,
         title=full_title,
+        plate_number=plate_number,
     )

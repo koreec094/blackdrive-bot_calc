@@ -48,3 +48,18 @@ def test_clean_raw_title_self_checks():
         translate_full_title(clean_raw_title("스포티지 5세대 가솔린 1.6 터보 2WD 프레스티지 경기 중고차 : 내차팔기·내차사기"))
         == "Kia Sportage 5th Gen 1.6 Turbo 2WD Prestige"
     )
+from bot.services.formatter import format_korean_plate_number
+from bot.services.encar_parser import parse_plate_number
+
+
+def test_format_korean_plate_number():
+    assert format_korean_plate_number("238어4590") == "238어 4590"
+    assert format_korean_plate_number("123가 4567") == "123가 4567"
+    assert format_korean_plate_number("45나6789") == "45나 6789"
+    assert format_korean_plate_number(" 45나 6789 ") == "45나 6789"
+    assert format_korean_plate_number("") is None
+
+
+def test_parse_plate_number():
+    text = "21/07식 (22년형) · 41,698km · 가솔린 · 369저7681"
+    assert parse_plate_number(text) == "369저7681"

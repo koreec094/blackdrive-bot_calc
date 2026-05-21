@@ -1,3 +1,5 @@
+import re
+
 TRIM_MAP = {
     "스타일": "Style",
     "스마트": "Smart",
@@ -94,3 +96,18 @@ def format_trim(trim: str | None) -> str:
     if not trim:
         return ""
     return TRIM_MAP.get(trim.strip(), "")
+
+
+def format_korean_plate_number(raw_plate: str | None) -> str | None:
+    if not raw_plate:
+        return None
+
+    normalized = re.sub(r"\s+", "", raw_plate)
+    if not normalized:
+        return None
+
+    match = re.match(r"^(\d{2,3})([가-힣])(\d{4})$", normalized)
+    if match:
+        return f"{match.group(1)}{match.group(2)} {match.group(3)}"
+
+    return raw_plate.strip() or None
