@@ -16,3 +16,4 @@ class EncarCarData:
     price_krw: int | None = None
     insurance_status: str | None = None
     title: str | None = None
+    plate_number: str | None = None
